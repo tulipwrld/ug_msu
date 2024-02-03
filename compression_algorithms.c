@@ -12,7 +12,7 @@ enum CompressType
     TYPE_RLE,
     TYPE_RLE_DECODE,
     TYPE_FIB,
-    TYPE_FIB_DECODE
+    TYPE_FIB_DECODE,
 };
 
 struct CompressedData
@@ -128,108 +128,97 @@ rle_decode(int n, void *data) {
     return cd;
 }
 
-// Не работает!
 struct CompressedData
 fib_compress(int n, void *data) {
-    const unsigned char fib_nums[] = {233,144,89,55,34,21,13,8,5,3,2,1};
+    const int fib_nums[] = {1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377};
+
+
     struct CompressedData cd;
 
     char* bytes = (char*)data;
+    int fib_sz = sizeof(fib_nums) / sizeof(int);
 
-    int fib_sz = sizeof(fib_nums);
-    
     char *code;
-    code = calloc(fib_sz * n, 1); // на каждый байт по-максимому 12 + 1 байт
-    
+    code = calloc(fib_sz * n, 1);
+
     int code_i = 0;
-    
-    for (int i = 0; i < n; i ++)
-    {
+    for (int i = 0; i < n; ++i) {
         unsigned char x = bytes[i];
         
-        if (code_i != 0)
-        {
-            //организация разделителя
+        if (x != 0) {
+            int max_fib_index = 0;
             
-            //для теста поменять на ' '
-            code[code_i ++] = '1';
-        }
-        
-        if (x != 0)
-        {
-            //пробежаться и найти число фиб. которое меньше или равно нашему
-            
-            int fib_index = 0;
-            
-            while (fib_nums[fib_index] > x)
-            {
-                fib_index ++;
-            }
-            
-            while (x)
-            {
-                code[code_i++] = '1';
-                
-                x -= fib_nums[fib_index++];
-
-                while (fib_index < fib_sz && fib_nums[fib_index] > x)
-                {
-                    fib_index ++;
-                    
-                    code[code_i++] = '0';
+            for (; max_fib_index < fib_sz; ++max_fib_index) {
+                if (fib_nums[max_fib_index] > x) {
+                    --max_fib_index;
+                    break;
                 }
             }
+
+            int fib_index = max_fib_index,
+                code_j = code_i + max_fib_index;
+            
+            while (x) {
+                code[code_j--] = '1';
+                x = x - fib_nums[fib_index--];
+                while (code_j >= code_i && fib_nums[fib_index] > x) {
+                    code[code_j--] = '0';
+    
+                    fib_index --;
+                }
+            }
+            
+            code_i += max_fib_index + 1;
         }
-        else
-        {
+        else {
             code[code_i++] = '0';
         }
+        
+        code[code_i ++] = '1';
     }
-    
-    //TODO: выделить память точного размера и скопировать результат в неё
 
     cd.compressed = (void*)code;
     cd.n = code_i;
 
+
     return cd;
 }
 
-// Не работает!
 struct CompressedData
 fib_decode(int n, void *data) {
-    const unsigned char fib_nums[] = {233, 144, 89, 55, 34, 21, 13, 8, 5, 3, 2, 1};
+    const int fib_nums[] = {1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377};
 
 
     struct CompressedData cd;
+
     char* bytes = (char*)data;
-    int fib_sz = sizeof(fib_nums);
-    
+    int fib_sz = sizeof(fib_nums) / sizeof(int);
+
+
     char *code;
     code = calloc(n, 1);
-
-    int code_i = 0;
-    int start_i = 0;
+    
+    int code_i = 0, start_i = 0;
     
     for (int cur_i = 1; cur_i < n; ++cur_i) {
         if (bytes[cur_i] == '1' && bytes[cur_i - 1] == '1' && cur_i > start_i) {
             unsigned char x = 0;
             int l = cur_i - start_i;
-            
+
             for (int i = 0; i < l; ++i) {
-                if (bytes[start_i + i] == '1') {
+                if (bytes[start_i+i] == '1') {
                     x += fib_nums[i];
                 }
             }
             
             code[code_i++] = x;
-            
             start_i = cur_i + 1;
         }
     }
     
     cd.compressed = (void*)code;
     cd.n = code_i;
-    
+
 
     return cd;
 }
@@ -281,8 +270,9 @@ file_compress(char* input, char* output, enum CompressType mode) {
     outfile = fopen(output, "wb");
 
     fwrite(cd.compressed, 1, cd.n, outfile);
-    
-    
+    fclose(outfile);
+
+
     if (cd.compressed != NULL) {
         free(cd.compressed);
     }
@@ -292,8 +282,6 @@ file_compress(char* input, char* output, enum CompressType mode) {
     return 0;
 }
 
-
-int
-main() {
-    file_compress("input.txt", "output.txt", TYPE_MOCK);
+int main() {
+    return file_compress("input.txt", "output.txt", TYPE_MOCK);
 }
